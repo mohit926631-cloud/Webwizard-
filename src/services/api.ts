@@ -141,9 +141,9 @@ export const apiService = {
   },
 
   deleteProject: async (projectId: string): Promise<boolean> => {
-    const res = await request<{ success: boolean }>({
+    const res = await request<{ success: boolean }>(`/api/projects/${projectId}`, {
       method: 'DELETE',
-    } as any);
+    });
     return res.success;
   },
 

@@ -662,6 +662,19 @@ export const AuthModal: React.FC<Props> = ({
                     <span>At least 1 special character (!@#$)</span>
                   </div>
                 </div>
+
+                <div className="flex items-center gap-2 mt-3 pt-1">
+                  <input
+                    type="checkbox"
+                    id="terms-agreed-checkbox"
+                    checked={termsAgreed}
+                    onChange={(e) => setTermsAgreed(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-800 bg-slate-950 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                  />
+                  <label htmlFor="terms-agreed-checkbox" className="text-xs text-slate-300 cursor-pointer select-none">
+                    I agree to the <span className="text-indigo-400 hover:underline">Terms of Service</span> & <span className="text-indigo-400 hover:underline">Privacy Policy</span>
+                  </label>
+                </div>
               </div>
             )}
 
