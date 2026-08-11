@@ -1,0 +1,6 @@
+{
+  "name": "VERVOX",
+  "description": "Turn Your Ideas Into Websites With AI — Build, Create, Download.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
