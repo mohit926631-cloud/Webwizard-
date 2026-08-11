@@ -19,10 +19,11 @@ export const AuthModal: React.FC<Props> = ({
   onToast,
 }) => {
   const [mode, setMode] = useState<AuthMode>(initialMode);
-  const [authMethod, setAuthMethod] = useState<'otp' | 'password'>('otp');
+  const [authMethod, setAuthMethod] = useState<'password' | 'otp'>('password');
   const [otpStep, setOtpStep] = useState<'request' | 'verify'>('request');
   const [otpCode, setOtpCode] = useState(['', '', '', '', '', '']);
   const [generatedOtp, setGeneratedOtp] = useState<string | null>(null);
+  const [showSimulatedEmail, setShowSimulatedEmail] = useState(false);
   const [timer, setTimer] = useState(300); // 5 mins
   const [showGoogleModal, setShowGoogleModal] = useState(false);
   const [googleEmail, setGoogleEmail] = useState('');
@@ -49,9 +50,11 @@ export const AuthModal: React.FC<Props> = ({
   useEffect(() => {
     if (isOpen) {
       setMode(initialMode);
+      setAuthMethod('password');
       setOtpStep('request');
       setOtpCode(['', '', '', '', '', '']);
       setGeneratedOtp(null);
+      setShowSimulatedEmail(false);
       setLoading(false);
       setResetSent(false);
     }
@@ -81,7 +84,7 @@ export const AuthModal: React.FC<Props> = ({
 
   if (!isOpen) return null;
 
-  // Handle Sending OTP Code
+  // Handle Sending OTP Code via Email
   const handleSendOTP = async () => {
     if (!email.includes('@')) {
       return onToast('error', 'Please enter a valid email address.');
@@ -100,9 +103,10 @@ export const AuthModal: React.FC<Props> = ({
       setGeneratedOtp(res.otpCode);
       setOtpStep('verify');
       setTimer(300);
-      onToast('success', `OTP Verification code sent to ${email.trim()}!`);
+      setShowSimulatedEmail(false);
+      onToast('success', `Verification email sent! Check your inbox at ${email.trim()}`);
     } catch (err: any) {
-      onToast('error', err.message || 'Failed to send OTP code.');
+      onToast('error', err.message || 'Failed to send verification email.');
     } finally {
       setLoading(false);
     }
@@ -112,7 +116,7 @@ export const AuthModal: React.FC<Props> = ({
     if (generatedOtp && generatedOtp.length === 6) {
       const digits = generatedOtp.split('');
       setOtpCode(digits);
-      onToast('info', 'OTP code auto-filled! Click "Verify & Complete Sign In".');
+      onToast('info', 'Verification code auto-filled from email!');
     }
   };
 
@@ -269,7 +273,7 @@ export const AuthModal: React.FC<Props> = ({
           <X className="w-5 h-5" />
         </button>
 
-        {/* HEADER BRANDING */}
+        {/* HEADER BRANDING & MAIN TABS */}
         <div className="flex flex-col items-center text-center mb-5">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-500 to-purple-600 p-0.5 shadow-lg shadow-indigo-500/20 mb-3 flex items-center justify-center">
             <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
@@ -278,63 +282,54 @@ export const AuthModal: React.FC<Props> = ({
           </div>
           <span className="font-extrabold text-xl tracking-wider text-white font-mono">VERVOX</span>
 
-          {mode === 'login' && (
-            <>
-              <h2 className="text-xl font-bold text-white mt-1">
-                {authMethod === 'otp' && otpStep === 'verify' ? 'Verify OTP Code' : 'Sign In to Vervox'}
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                {authMethod === 'otp' && otpStep === 'verify'
-                  ? `Enter the 6-digit code sent to ${email}`
-                  : 'Access your AI websites, credits & dashboard.'}
-              </p>
-            </>
-          )}
-
-          {mode === 'signup' && (
-            <>
-              <h2 className="text-xl font-bold text-white mt-1">Create Account</h2>
-              <p className="text-xs text-slate-400 mt-1">Get 200 free monthly credits & start building AI websites.</p>
-            </>
+          {/* MAIN SIGN IN / SIGN UP TABS */}
+          {mode !== 'forgot' && otpStep === 'request' && (
+            <div className="flex w-full bg-slate-950 border border-slate-800 p-1 rounded-xl mt-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('login');
+                  setAuthMethod('password');
+                }}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                  mode === 'login'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('signup');
+                  setAuthMethod('password');
+                }}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                  mode === 'signup'
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Sign Up
+              </button>
+            </div>
           )}
 
           {mode === 'forgot' && (
-            <>
-              <h2 className="text-xl font-bold text-white mt-1">Forgot Password</h2>
-              <p className="text-xs text-slate-400 mt-1">Enter your email to receive password reset instructions.</p>
-            </>
+            <div className="mt-2">
+              <h2 className="text-lg font-bold text-white">Reset Password</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Enter your email address to receive reset instructions.</p>
+            </div>
+          )}
+
+          {otpStep === 'verify' && authMethod === 'otp' && (
+            <div className="mt-2">
+              <h2 className="text-lg font-bold text-white">Enter Email Verification Code</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Check your email inbox for the 6-digit authentication code.</p>
+            </div>
           )}
         </div>
-
-        {/* METHOD TOGGLE BUTTONS (OTP vs Password) */}
-        {mode !== 'forgot' && otpStep === 'request' && (
-          <div className="grid grid-cols-2 gap-1 p-1 bg-slate-950 border border-slate-800 rounded-xl mb-5">
-            <button
-              type="button"
-              onClick={() => setAuthMethod('otp')}
-              className={`py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                authMethod === 'otp'
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <KeyRound className="w-3.5 h-3.5" />
-              Email OTP Login
-            </button>
-            <button
-              type="button"
-              onClick={() => setAuthMethod('password')}
-              className={`py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                authMethod === 'password'
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Lock className="w-3.5 h-3.5" />
-              Password
-            </button>
-          </div>
-        )}
 
         {/* FORGOT PASSWORD RESET SENT STATE */}
         {mode === 'forgot' && resetSent ? (
@@ -342,7 +337,7 @@ export const AuthModal: React.FC<Props> = ({
             <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/30">
               <ShieldCheck className="w-6 h-6" />
             </div>
-            <h3 className="font-bold text-white text-base">Check Your Inbox</h3>
+            <h3 className="font-bold text-white text-base">Check Your Email Inbox</h3>
             <p className="text-xs text-slate-300 leading-relaxed">
               Password reset instructions have been sent to <span className="text-indigo-300 font-semibold">{email}</span>.
             </p>
@@ -350,14 +345,15 @@ export const AuthModal: React.FC<Props> = ({
               onClick={() => {
                 setResetSent(false);
                 setMode('login');
+                setAuthMethod('password');
               }}
-              className="w-full py-2.5 rounded-xl bg-slate-800 text-slate-200 text-xs font-semibold hover:bg-slate-700 mt-4"
+              className="w-full py-2.5 rounded-xl bg-slate-800 text-slate-200 text-xs font-semibold hover:bg-slate-700 mt-4 cursor-pointer"
             >
               Back to Sign In
             </button>
           </div>
         ) : authMethod === 'otp' && mode !== 'forgot' ? (
-          /* REAL EMAIL OTP AUTH FLOW */
+          /* EMAIL OTP AUTH FLOW */
           otpStep === 'request' ? (
             <form onSubmit={(e) => { e.preventDefault(); handleSendOTP(); }} className="space-y-4">
               {mode === 'signup' && (
@@ -415,18 +411,27 @@ export const AuthModal: React.FC<Props> = ({
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Generating OTP Code...
+                    Sending Email Code...
                   </span>
                 ) : (
                   <span className="flex items-center gap-2">
                     <KeyRound className="w-4 h-4" />
-                    Send 6-Digit OTP Code
+                    Send Verification Code to Email
                   </span>
                 )}
               </button>
 
+              <button
+                type="button"
+                onClick={() => setAuthMethod('password')}
+                className="w-full text-xs text-indigo-400 hover:underline flex items-center justify-center gap-1 py-1 cursor-pointer"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                Or sign in with Password instead
+              </button>
+
               {/* GOOGLE SIGN IN BUTTON */}
-              <div className="relative my-4">
+              <div className="relative my-3">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-slate-800" />
                 </div>
@@ -453,58 +458,54 @@ export const AuthModal: React.FC<Props> = ({
                 </svg>
                 Continue with Google
               </button>
-
-              <div className="text-center pt-2 text-xs text-slate-400">
-                {mode === 'login' ? (
-                  <p>
-                    Need a new account?{' '}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode('signup');
-                        setOtpStep('request');
-                      }}
-                      className="font-semibold text-indigo-400 hover:underline"
-                    >
-                      Sign Up
-                    </button>
-                  </p>
-                ) : (
-                  <p>
-                    Already registered?{' '}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode('login');
-                        setOtpStep('request');
-                      }}
-                      className="font-semibold text-indigo-400 hover:underline"
-                    >
-                      Sign In
-                    </button>
-                  </p>
-                )}
-              </div>
             </form>
           ) : (
             /* OTP VERIFICATION STEP */
             <form onSubmit={handleVerifyOTP} className="space-y-4">
-              {/* REAL OTP DEMO BANNER WITH CLICK TO AUTO-FILL */}
+              {/* REALISTIC EMAIL SENT BANNER */}
+              <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-center space-y-1">
+                <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-blue-300">
+                  <Mail className="w-4 h-4 text-blue-400" />
+                  <span>Verification Email Sent!</span>
+                </div>
+                <p className="text-[11px] text-slate-300">
+                  We sent a 6-digit code to <strong className="text-white font-medium">{email}</strong>
+                </p>
+              </div>
+
+              {/* SIMULATED EMAIL INBOX PREVIEW (COLLAPSIBLE / AUTOFILL ASSISTANT) */}
               {generatedOtp && (
-                <button
-                  type="button"
-                  onClick={handleAutoFillOtp}
-                  className="w-full p-3 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-center transition-all cursor-pointer group"
-                >
-                  <p className="text-[11px] font-semibold text-indigo-300 group-hover:text-white transition-colors flex items-center justify-center gap-1">
-                    <span>Security Verification Code:</span>
-                    <span className="text-[10px] bg-indigo-500/20 px-1.5 py-0.5 rounded text-indigo-200">Click to Auto-Fill</span>
-                  </p>
-                  <div className="text-2xl font-mono font-extrabold text-indigo-200 tracking-widest my-1 group-hover:scale-105 transition-transform">
-                    {generatedOtp}
+                <div className="rounded-xl border border-slate-800 bg-slate-950 p-2.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      Email Delivery Simulation
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowSimulatedEmail(!showSimulatedEmail)}
+                      className="text-[11px] text-indigo-400 hover:underline font-medium cursor-pointer"
+                    >
+                      {showSimulatedEmail ? 'Hide Email' : 'View Code in Email'}
+                    </button>
                   </div>
-                  <p className="text-[10px] text-slate-400 group-hover:text-slate-300">Click anywhere on this box to auto-fill code</p>
-                </button>
+
+                  {showSimulatedEmail && (
+                    <div className="mt-2 p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-center animate-fade-in space-y-2">
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Incoming Email Notification</p>
+                      <div className="text-xl font-mono font-extrabold text-indigo-200 tracking-widest">
+                        {generatedOtp}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAutoFillOtp}
+                        className="w-full py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 text-[11px] font-semibold transition-colors cursor-pointer"
+                      >
+                        Auto-Fill Verification Code
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* 6-DIGIT OTP INPUT BOXES */}
@@ -545,10 +546,10 @@ export const AuthModal: React.FC<Props> = ({
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Verifying OTP Code...
+                    Verifying Code...
                   </span>
                 ) : (
-                  'Verify & Complete Sign In'
+                  'Verify & Sign In'
                 )}
               </button>
 
@@ -557,7 +558,7 @@ export const AuthModal: React.FC<Props> = ({
                 onClick={() => setOtpStep('request')}
                 className="w-full py-2 text-xs text-slate-400 hover:text-white flex items-center justify-center gap-1 cursor-pointer"
               >
-                <ArrowLeft className="w-3.5 h-3.5" /> Change Email or Method
+                <ArrowLeft className="w-3.5 h-3.5" /> Back to Email Entry
               </button>
             </form>
           )
@@ -667,7 +668,7 @@ export const AuthModal: React.FC<Props> = ({
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition-all hover:scale-[1.01] flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition-all hover:scale-[1.01] flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {loading ? (
                 <span className="flex items-center gap-2">
@@ -682,6 +683,20 @@ export const AuthModal: React.FC<Props> = ({
                 'Send Reset Link'
               )}
             </button>
+
+            {mode !== 'forgot' && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMethod('otp');
+                  setOtpStep('request');
+                }}
+                className="w-full text-xs text-indigo-400 hover:underline flex items-center justify-center gap-1 py-1 cursor-pointer"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                Or sign in with Email Verification Code (OTP)
+              </button>
+            )}
 
             {/* GOOGLE SIGN IN BUTTON */}
             {mode !== 'forgot' && (
