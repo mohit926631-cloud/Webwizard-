@@ -39,7 +39,11 @@ export const ProjectsGrid: React.FC<Props> = ({
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   const zipInputRef = useRef<HTMLInputElement>(null);
-  const totalCredits = (user.usage.monthlyCredits || 0) + (user.usage.purchasedCredits || 0);
+  const monthlyCredits = user?.usage?.monthlyCredits ?? (user as any)?.monthlyCredits ?? 0;
+  const purchasedCredits = user?.usage?.purchasedCredits ?? (user as any)?.purchasedCredits ?? 0;
+  const maxMonthlyCredits = user?.usage?.maxMonthlyCredits ?? 200;
+  const maxProjects = user?.usage?.maxProjects ?? 10;
+  const totalCredits = monthlyCredits + purchasedCredits;
 
   const handleStartRename = (project: Project) => {
     setEditingId(project.id);
@@ -177,14 +181,14 @@ export const ProjectsGrid: React.FC<Props> = ({
               Monthly Credits
             </span>
             <span className="font-bold text-amber-400">
-              {user.usage.monthlyCredits} / {user.usage.maxMonthlyCredits || 200}
+              {monthlyCredits} / {maxMonthlyCredits}
             </span>
           </div>
           <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
             <div
               className="bg-amber-500 h-full rounded-full transition-all"
               style={{
-                width: `${Math.min(100, ((user.usage.monthlyCredits || 0) / (user.usage.maxMonthlyCredits || 200)) * 100)}%`,
+                width: `${Math.min(100, (monthlyCredits / maxMonthlyCredits) * 100)}%`,
               }}
             />
           </div>
@@ -201,14 +205,14 @@ export const ProjectsGrid: React.FC<Props> = ({
               Purchased Extra Credits
             </span>
             <span className="font-bold text-indigo-400">
-              {user.usage.purchasedCredits || 0} Credits
+              {purchasedCredits} Credits
             </span>
           </div>
           <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
             <div
               className="bg-indigo-500 h-full rounded-full transition-all"
               style={{
-                width: `${Math.min(100, Math.max(10, ((user.usage.purchasedCredits || 0) / 1000) * 100))}%`,
+                width: `${Math.min(100, Math.max(10, (purchasedCredits / 1000) * 100))}%`,
               }}
             />
           </div>
@@ -225,14 +229,14 @@ export const ProjectsGrid: React.FC<Props> = ({
               Created Projects
             </span>
             <span className="font-bold text-purple-400">
-              {projects.length} / {user.usage.maxProjects || 10}
+              {projects.length} / {maxProjects}
             </span>
           </div>
           <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
             <div
               className="bg-purple-500 h-full rounded-full transition-all"
               style={{
-                width: `${Math.min(100, (projects.length / (user.usage.maxProjects || 10)) * 100)}%`,
+                width: `${Math.min(100, (projects.length / maxProjects) * 100)}%`,
               }}
             />
           </div>

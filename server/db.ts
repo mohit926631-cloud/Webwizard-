@@ -181,6 +181,29 @@ function checkMonthlyReset(user: DBUser): boolean {
   return false;
 }
 
+export function formatUserForClient(user: DBUser) {
+  checkMonthlyReset(user);
+  const planConfig = PLAN_LIMITS[user.plan] || PLAN_LIMITS.free;
+  return {
+    ...user,
+    usage: {
+      monthlyCredits: user.monthlyCredits ?? 200,
+      maxMonthlyCredits: planConfig.monthlyCredits || 200,
+      purchasedCredits: user.purchasedCredits ?? 0,
+      creditsUsed: user.creditsUsed ?? 0,
+      lastCreditResetDate: user.lastCreditResetDate || user.createdAt,
+      subscriptionStatus: user.subscriptionStatus || 'none',
+      subscriptionRenewalDate: user.subscriptionRenewalDate || user.createdAt,
+      generationsUsed: Math.floor((user.creditsUsed || 0) / 20),
+      maxGenerations: Math.floor((planConfig.monthlyCredits || 200) / 20),
+      projectsCount: 0,
+      maxProjects: planConfig.maxProjects || 10,
+      storageMb: 0,
+      maxStorageMb: 50,
+    },
+  };
+}
+
 export const dbService = {
   // --- AUTHENTICATION ---
   signupUser: (name: string, email: string, password?: string) => {
@@ -232,7 +255,7 @@ export const dbService = {
     db.tokens[token] = userId;
     saveDB(db);
 
-    return { user: newUser, token };
+    return { user: formatUserForClient(newUser), token };
   },
 
   // --- OTP VERIFICATION SYSTEM ---
@@ -284,7 +307,6 @@ export const dbService = {
 
     // Valid OTP! Remove used OTP code
     delete db.otps[normalized];
-    saveDB(db);
 
     let user = Object.values(db.users).find((u) => u.email === normalized);
     const now = new Date();
@@ -294,7 +316,7 @@ export const dbService = {
       const renewal = new Date(now);
       renewal.setDate(renewal.getDate() + 30);
 
-      const displayName = name || record.name || normalized.split('@')[0];
+      const displayName = name?.trim() || record.name?.trim() || normalized.split('@')[0];
       user = {
         id: userId,
         name: displayName,
@@ -323,13 +345,17 @@ export const dbService = {
         ],
       };
       db.users[user.id] = user;
+    } else {
+      if (name && name.trim()) {
+        user.name = name.trim();
+      }
     }
 
     const token = `token_${user.id}_${Date.now()}`;
     db.tokens[token] = user.id;
     saveDB(db);
 
-    return { user, token };
+    return { user: formatUserForClient(user), token };
   },
 
   loginUser: (email: string, password?: string) => {
@@ -338,13 +364,18 @@ export const dbService = {
     const user = Object.values(db.users).find((u) => u.email === normalizedEmail);
 
     if (!user) {
-      throw new Error('Invalid email or password.');
+      throw new Error('Account with this email does not exist. Please sign up or use Email OTP.');
     }
 
-    if (password && user.passwordHash) {
-      const hashed = hashPassword(password);
-      if (hashed !== user.passwordHash) {
-        throw new Error('Invalid email or password.');
+    if (password) {
+      if (user.passwordHash) {
+        const hashed = hashPassword(password);
+        if (hashed !== user.passwordHash) {
+          throw new Error('Incorrect password. Please try again or reset your password.');
+        }
+      } else {
+        // Set password for account created via OTP / Google
+        user.passwordHash = hashPassword(password);
       }
     }
 
@@ -357,7 +388,7 @@ export const dbService = {
     db.tokens[token] = user.id;
     saveDB(db);
 
-    return { user, token };
+    return { user: formatUserForClient(user), token };
   },
 
   googleLogin: (name: string, email: string, avatar?: string) => {
@@ -410,7 +441,7 @@ export const dbService = {
     db.tokens[token] = user.id;
     saveDB(db);
 
-    return { user, token };
+    return { user: formatUserForClient(user), token };
   },
 
   getUserByToken: (token: string) => {
@@ -423,7 +454,7 @@ export const dbService = {
     if (checkMonthlyReset(user)) {
       saveDB(db);
     }
-    return user;
+    return formatUserForClient(user);
   },
 
   logoutToken: (token: string) => {
@@ -453,7 +484,7 @@ export const dbService = {
     });
     user.updatedAt = now.toISOString();
     saveDB(db);
-    return user;
+    return formatUserForClient(user);
   },
 
   checkAndDeductCredits: (userId: string, cost: number) => {
@@ -498,7 +529,7 @@ export const dbService = {
 
     return {
       success: true,
-      user,
+      user: formatUserForClient(user),
       monthlyCredits: user.monthlyCredits,
       purchasedCredits: user.purchasedCredits,
       totalAvailable: user.monthlyCredits + user.purchasedCredits,
@@ -556,7 +587,7 @@ export const dbService = {
     user.updatedAt = now.toISOString();
     saveDB(db);
 
-    return { user, transaction: tx };
+    return { user: formatUserForClient(user), transaction: tx };
   },
 
   // --- PROJECTS ---

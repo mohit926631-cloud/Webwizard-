@@ -26,7 +26,11 @@ export const BillingView: React.FC<Props> = ({ user, onUserUpdated, onToast }) =
   const [selectedCurrency, setSelectedCurrency] = useState<'USD' | 'INR'>('USD');
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const totalCredits = (user.usage.monthlyCredits || 0) + (user.usage.purchasedCredits || 0);
+  const monthlyCredits = user?.usage?.monthlyCredits ?? (user as any)?.monthlyCredits ?? 0;
+  const purchasedCredits = user?.usage?.purchasedCredits ?? (user as any)?.purchasedCredits ?? 0;
+  const maxMonthlyCredits = user?.usage?.maxMonthlyCredits ?? 200;
+  const renewalDate = user?.usage?.subscriptionRenewalDate ?? (user as any)?.subscriptionRenewalDate ?? new Date().toISOString();
+  const totalCredits = monthlyCredits + purchasedCredits;
 
   const handleProcessPayment = async (plan?: PlanConfig, pack?: CreditPackConfig) => {
     const targetId = plan ? plan.id : pack?.id || 'payment';
@@ -112,7 +116,7 @@ export const BillingView: React.FC<Props> = ({ user, onUserUpdated, onToast }) =
           <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
             <span>Next Renewal Date:</span>
             <span className="font-semibold text-white">
-              {new Date(user.usage.subscriptionRenewalDate || Date.now()).toLocaleDateString()}
+              {new Date(renewalDate).toLocaleDateString()}
             </span>
           </div>
         </div>
@@ -125,7 +129,7 @@ export const BillingView: React.FC<Props> = ({ user, onUserUpdated, onToast }) =
               Free Monthly Credits
             </span>
             <span className="font-bold text-amber-400 text-sm">
-              {user.usage.monthlyCredits} Remaining
+              {monthlyCredits} Remaining
             </span>
           </div>
 
@@ -133,7 +137,7 @@ export const BillingView: React.FC<Props> = ({ user, onUserUpdated, onToast }) =
             <div
               className="bg-amber-500 h-full rounded-full transition-all"
               style={{
-                width: `${Math.min(100, ((user.usage.monthlyCredits || 0) / (user.usage.maxMonthlyCredits || 200)) * 100)}%`,
+                width: `${Math.min(100, (monthlyCredits / maxMonthlyCredits) * 100)}%`,
               }}
             />
           </div>
@@ -155,7 +159,7 @@ export const BillingView: React.FC<Props> = ({ user, onUserUpdated, onToast }) =
               Purchased Extra Credits
             </span>
             <span className="font-bold text-indigo-400 text-sm">
-              {user.usage.purchasedCredits || 0} Credits
+              {purchasedCredits} Credits
             </span>
           </div>
 
@@ -163,7 +167,7 @@ export const BillingView: React.FC<Props> = ({ user, onUserUpdated, onToast }) =
             <div
               className="bg-indigo-500 h-full rounded-full transition-all"
               style={{
-                width: `${Math.min(100, Math.max(10, ((user.usage.purchasedCredits || 0) / 1000) * 100))}%`,
+                width: `${Math.min(100, Math.max(10, (purchasedCredits / 1000) * 100))}%`,
               }}
             />
           </div>

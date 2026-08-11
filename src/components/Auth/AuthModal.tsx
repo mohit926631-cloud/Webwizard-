@@ -45,6 +45,27 @@ export const AuthModal: React.FC<Props> = ({
   const hasNumber = /\d/.test(password);
   const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
 
+  // Reset modal state on open or mode change
+  useEffect(() => {
+    if (isOpen) {
+      setMode(initialMode);
+      setOtpStep('request');
+      setOtpCode(['', '', '', '', '', '']);
+      setGeneratedOtp(null);
+      setLoading(false);
+      setResetSent(false);
+    }
+  }, [isOpen, initialMode]);
+
+  // Focus first OTP box on verify step
+  useEffect(() => {
+    if (otpStep === 'verify') {
+      setTimeout(() => {
+        document.getElementById('otp-box-0')?.focus();
+      }, 100);
+    }
+  }, [otpStep]);
+
   // OTP Timer countdown
   useEffect(() => {
     let interval: any = null;
@@ -73,6 +94,7 @@ export const AuthModal: React.FC<Props> = ({
     }
 
     setLoading(true);
+    setOtpCode(['', '', '', '', '', '']);
     try {
       const res = await apiService.sendOTP(email.trim(), name.trim());
       setGeneratedOtp(res.otpCode);
@@ -83,6 +105,14 @@ export const AuthModal: React.FC<Props> = ({
       onToast('error', err.message || 'Failed to send OTP code.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAutoFillOtp = () => {
+    if (generatedOtp && generatedOtp.length === 6) {
+      const digits = generatedOtp.split('');
+      setOtpCode(digits);
+      onToast('info', 'OTP code auto-filled! Click "Verify & Complete Sign In".');
     }
   };
 
@@ -329,7 +359,7 @@ export const AuthModal: React.FC<Props> = ({
         ) : authMethod === 'otp' && mode !== 'forgot' ? (
           /* REAL EMAIL OTP AUTH FLOW */
           otpStep === 'request' ? (
-            <div className="space-y-4">
+            <form onSubmit={(e) => { e.preventDefault(); handleSendOTP(); }} className="space-y-4">
               {mode === 'signup' && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">Full Name</label>
@@ -378,10 +408,9 @@ export const AuthModal: React.FC<Props> = ({
               )}
 
               <button
-                type="button"
-                onClick={handleSendOTP}
+                type="submit"
                 disabled={loading}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition-all hover:scale-[1.01] flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition-all hover:scale-[1.01] flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
@@ -414,7 +443,7 @@ export const AuthModal: React.FC<Props> = ({
                   setShowGoogleModal(true);
                 }}
                 disabled={loading}
-                className="w-full py-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 text-xs font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full py-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 text-xs font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -431,7 +460,10 @@ export const AuthModal: React.FC<Props> = ({
                     Need a new account?{' '}
                     <button
                       type="button"
-                      onClick={() => setMode('signup')}
+                      onClick={() => {
+                        setMode('signup');
+                        setOtpStep('request');
+                      }}
                       className="font-semibold text-indigo-400 hover:underline"
                     >
                       Sign Up
@@ -442,7 +474,10 @@ export const AuthModal: React.FC<Props> = ({
                     Already registered?{' '}
                     <button
                       type="button"
-                      onClick={() => setMode('login')}
+                      onClick={() => {
+                        setMode('login');
+                        setOtpStep('request');
+                      }}
                       className="font-semibold text-indigo-400 hover:underline"
                     >
                       Sign In
@@ -450,19 +485,26 @@ export const AuthModal: React.FC<Props> = ({
                   </p>
                 )}
               </div>
-            </div>
+            </form>
           ) : (
             /* OTP VERIFICATION STEP */
             <form onSubmit={handleVerifyOTP} className="space-y-4">
-              {/* REAL OTP DEMO BANNER */}
+              {/* REAL OTP DEMO BANNER WITH CLICK TO AUTO-FILL */}
               {generatedOtp && (
-                <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-center animate-pulse">
-                  <p className="text-[11px] font-semibold text-indigo-300">Security Verification Code Generated:</p>
-                  <div className="text-2xl font-mono font-extrabold text-indigo-200 tracking-widest my-1">
+                <button
+                  type="button"
+                  onClick={handleAutoFillOtp}
+                  className="w-full p-3 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-center transition-all cursor-pointer group"
+                >
+                  <p className="text-[11px] font-semibold text-indigo-300 group-hover:text-white transition-colors flex items-center justify-center gap-1">
+                    <span>Security Verification Code:</span>
+                    <span className="text-[10px] bg-indigo-500/20 px-1.5 py-0.5 rounded text-indigo-200">Click to Auto-Fill</span>
+                  </p>
+                  <div className="text-2xl font-mono font-extrabold text-indigo-200 tracking-widest my-1 group-hover:scale-105 transition-transform">
                     {generatedOtp}
                   </div>
-                  <p className="text-[10px] text-slate-400">Enter this 6-digit code below to authenticate.</p>
-                </div>
+                  <p className="text-[10px] text-slate-400 group-hover:text-slate-300">Click anywhere on this box to auto-fill code</p>
+                </button>
               )}
 
               {/* 6-DIGIT OTP INPUT BOXES */}
@@ -487,8 +529,8 @@ export const AuthModal: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={handleSendOTP}
-                  disabled={loading || timer > 270}
-                  className="text-indigo-400 hover:underline flex items-center gap-1 disabled:opacity-40"
+                  disabled={loading || timer > 295}
+                  className="text-indigo-400 hover:underline flex items-center gap-1 disabled:opacity-40 cursor-pointer"
                 >
                   <RefreshCw className="w-3 h-3" />
                   Resend Code
@@ -498,7 +540,7 @@ export const AuthModal: React.FC<Props> = ({
               <button
                 type="submit"
                 disabled={loading || otpCode.join('').length !== 6}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 via-indigo-600 to-purple-600 hover:from-emerald-500 hover:to-purple-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition-all hover:scale-[1.01] flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 via-indigo-600 to-purple-600 hover:from-emerald-500 hover:to-purple-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition-all hover:scale-[1.01] flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
@@ -513,7 +555,7 @@ export const AuthModal: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={() => setOtpStep('request')}
-                className="w-full py-2 text-xs text-slate-400 hover:text-white flex items-center justify-center gap-1"
+                className="w-full py-2 text-xs text-slate-400 hover:text-white flex items-center justify-center gap-1 cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" /> Change Email or Method
               </button>
