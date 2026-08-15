@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User } from '../../types';
-import { Settings, Key, User as UserIcon, Shield, Sparkles, CheckCircle2, AlertCircle, RefreshCw, Cpu } from 'lucide-react';
+import { Settings, Key, User as UserIcon, Shield, Sparkles, CheckCircle2, AlertCircle, RefreshCw, Cpu, Lock, ExternalLink } from 'lucide-react';
+import { useSafeAuth } from '../Auth/ClerkAuthProvider';
 
 interface Props {
   user: User;
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export const SettingsView: React.FC<Props> = ({ user, onUpdateUser, onToast }) => {
+  const { isClerkAvailable } = useSafeAuth();
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [apiKey, setApiKey] = useState('');
@@ -161,6 +163,58 @@ export const SettingsView: React.FC<Props> = ({ user, onUpdateUser, onToast }) =
               <span>Key verification failed. VERVOX Demo Mode active.</span>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* CLERK AUTHENTICATION CONFIGURATION */}
+      <div className="p-6 sm:p-8 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-6">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Lock className="w-5 h-5 text-indigo-400" />
+            Clerk Authentication
+          </h2>
+          <span className={`text-[10px] font-mono font-bold uppercase px-2.5 py-1 rounded ${
+            isClerkAvailable
+              ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30'
+              : 'bg-indigo-500/10 text-indigo-300 border border-indigo-500/30'
+          }`}>
+            {isClerkAvailable ? 'ACTIVE' : 'READY TO CONNECT'}
+          </span>
+        </div>
+
+        <p className="text-xs text-slate-400 leading-relaxed">
+          This project is configured to integrate with Clerk for user management, OAuth login, and role-based security.
+          Linked Clerk Application ID: <code className="text-indigo-300 bg-slate-950 px-2 py-0.5 rounded font-mono">app_3Hxj2ljwXEuJx76x2eCUsaqUuky</code>.
+        </p>
+
+        <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-slate-300 font-medium">Clerk Publishable Key:</span>
+            <span className="font-mono text-slate-400">
+              {isClerkAvailable ? 'Configured & Active ✓' : 'Add in .env (VITE_CLERK_PUBLISHABLE_KEY)'}
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <a
+              href="https://dashboard.clerk.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            >
+              <span>Open Clerk Dashboard</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+            <a
+              href="https://clerk.com/docs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            >
+              <span>Clerk Documentation</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
         </div>
       </div>
     </div>

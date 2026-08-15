@@ -6,7 +6,6 @@ interface Props {
   currentView: ViewMode;
   onNavigate: (view: ViewMode) => void;
   user: User;
-  onSignOut: () => void;
   onOpenNewProject: () => void;
 }
 
@@ -14,7 +13,6 @@ export const DashboardSidebar: React.FC<Props> = ({
   currentView,
   onNavigate,
   user,
-  onSignOut,
   onOpenNewProject,
 }) => {
   const menuItems: { label: string; view: ViewMode; icon: React.ReactNode }[] = [
@@ -22,8 +20,8 @@ export const DashboardSidebar: React.FC<Props> = ({
     { label: 'My Projects', view: 'dashboard', icon: <FolderGit2 className="w-4 h-4" /> },
     { label: 'Templates', view: 'templates', icon: <Layers className="w-4 h-4" /> },
     { label: 'AI Models', view: 'models', icon: <Cpu className="w-4 h-4" /> },
-    { label: 'Settings', view: 'settings', icon: <Settings className="w-4 h-4" /> },
-    { label: 'Billing', view: 'billing', icon: <CreditCard className="w-4 h-4" /> },
+    { label: 'Settings & BYOK', view: 'settings', icon: <Settings className="w-4 h-4" /> },
+    { label: 'Billing & Credits', view: 'billing', icon: <CreditCard className="w-4 h-4" /> },
   ];
 
   return (
@@ -77,7 +75,7 @@ export const DashboardSidebar: React.FC<Props> = ({
           </div>
           <div className="overflow-hidden text-xs">
             <p className="font-bold text-white truncate">{user.name}</p>
-            <p className="text-[10px] text-slate-400 uppercase font-semibold text-indigo-400">{user.plan} PLAN</p>
+            <p className="text-[10px] text-indigo-400 uppercase font-semibold">{user.usage?.monthlyCredits ?? 5000} CREDITS ACTIVE</p>
           </div>
         </div>
 
@@ -87,14 +85,6 @@ export const DashboardSidebar: React.FC<Props> = ({
         >
           <HelpCircle className="w-4 h-4" />
           Help & FAQs
-        </button>
-
-        <button
-          onClick={onSignOut}
-          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-rose-400 hover:bg-rose-500/10 rounded-lg"
-        >
-          <LogOut className="w-4 h-4" />
-          Logout
         </button>
       </div>
     </aside>

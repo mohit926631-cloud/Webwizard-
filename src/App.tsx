@@ -1,15 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { ViewMode, User, Project, Template, Toast, AuthMode, AIChatMessage, ProjectFiles } from './types';
-import { apiService, setStoredToken, getStoredToken } from './services/api';
-import { storage } from './services/storage';
-import { TEMPLATES } from './services/templateData';
+import { ViewMode, User, Project, Template, Toast, AIChatMessage, ProjectFiles } from './types';
+import { apiService } from './services/api';
+import { storage, DEFAULT_USER } from './services/storage';
 import { exportProjectAsZip } from './services/zipExport';
+import { useSafeClerkUser } from './components/Auth/ClerkAuthProvider';
 
 // Components
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { ToastContainer } from './components/ToastContainer';
-import { AuthModal } from './components/Auth/AuthModal';
 
 // Landing Page Components
 import { HeroSection } from './components/Landing/HeroSection';
@@ -24,7 +23,6 @@ import { ProjectsGrid } from './components/Dashboard/ProjectsGrid';
 import { NewProjectModal } from './components/Dashboard/NewProjectModal';
 
 // Editor Components
-import { GenerationProgress } from './components/Editor/GenerationProgress';
 import { EditorLayout } from './components/Editor/EditorLayout';
 import { LiveBuildRunner } from './components/BuildRunner/LiveBuildRunner';
 
@@ -34,14 +32,32 @@ import { AIModelsView } from './components/Settings/AIModelsView';
 import { BillingView } from './components/Billing/BillingView';
 
 export function App() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user: clerkUser, isLoaded: isClerkLoaded, isSignedIn } = useSafeClerkUser();
+  const [user, setUser] = useState<User>(storage.getUser() || DEFAULT_USER);
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentView, setCurrentView] = useState<ViewMode>('landing');
   const [activeProject, setActiveProject] = useState<Project | null>(null);
 
+  // Sync with Clerk User whenever clerk auth changes
+  useEffect(() => {
+    if (isClerkLoaded && isSignedIn && clerkUser) {
+      const email = clerkUser.primaryEmailAddress?.emailAddress || 'creator@vervox.ai';
+      const name = clerkUser.fullName || clerkUser.firstName || clerkUser.username || 'Creator';
+      setUser((prev) => {
+        const updated: User = {
+          ...prev,
+          id: clerkUser.id,
+          name,
+          email,
+        };
+        storage.saveUser(updated);
+        return updated;
+      });
+    }
+  }, [isClerkLoaded, isSignedIn, clerkUser]);
+
+
   // Modals and UI overlays
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<AuthMode>('login');
   const [newProjectModalOpen, setNewProjectModalOpen] = useState(false);
   const [initialPrompt, setInitialPrompt] = useState('');
   const [generating, setGenerating] = useState(false);
@@ -67,20 +83,19 @@ export function App() {
 
   // FETCH SESSION & PROJECTS FROM SERVER
   const loadUserData = async () => {
-    const token = getStoredToken();
-    if (!token) return;
-
     try {
       const { user: serverUser } = await apiService.getMe();
-      setUser(serverUser);
-      storage.saveUser(serverUser);
+      if (serverUser) {
+        setUser(serverUser);
+        storage.saveUser(serverUser);
+      }
 
       const serverProjects = await apiService.getProjects();
-      setProjects(serverProjects);
+      if (Array.isArray(serverProjects)) {
+        setProjects(serverProjects);
+      }
     } catch (err: any) {
-      console.warn('Session check failed or expired token:', err);
-      setStoredToken(null);
-      setUser(null);
+      console.warn('Session load info:', err);
     }
   };
 
@@ -88,27 +103,8 @@ export function App() {
     loadUserData();
   }, []);
 
-  // AUTH ACTIONS
-  const handleSignOut = async () => {
-    await apiService.logout();
-    setUser(null);
-    setProjects([]);
-    setCurrentView('landing');
-    addToast('info', 'You have been signed out.');
-  };
-
-  const handleOpenAuth = (mode: AuthMode = 'login') => {
-    setAuthMode(mode);
-    setAuthModalOpen(true);
-  };
-
   // PROJECT CREATION & GENERATION FLOW
   const handleStartBuilding = (prompt?: string) => {
-    if (!user) {
-      addToast('info', 'Please sign in or create an account to start building websites.');
-      handleOpenAuth('signup');
-      return;
-    }
     if (prompt) {
       setInitialPrompt(prompt);
     }
@@ -116,10 +112,6 @@ export function App() {
   };
 
   const handleTriggerGenerate = (prompt: string) => {
-    if (!user) {
-      handleOpenAuth('signup');
-      return;
-    }
     setNewProjectModalOpen(false);
     setInitialPrompt(prompt);
     setGenerating(true);
@@ -147,11 +139,6 @@ export function App() {
 
   // USE STARTER TEMPLATE
   const handleUseTemplate = async (template: Template) => {
-    if (!user) {
-      handleOpenAuth('signup');
-      return;
-    }
-
     try {
       const saved = await apiService.saveProject({
         name: `${template.name} Site`,
@@ -334,19 +321,6 @@ export function App() {
       {/* TOAST CONTAINER */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
 
-      {/* AUTHENTICATION MODAL */}
-      <AuthModal
-        isOpen={authModalOpen}
-        initialMode={authMode}
-        onClose={() => setAuthModalOpen(false)}
-        onSuccess={(u) => {
-          setUser(u);
-          storage.saveUser(u);
-          loadUserData();
-        }}
-        onToast={addToast}
-      />
-
       {/* NEW PROJECT MODAL */}
       <NewProjectModal
         isOpen={newProjectModalOpen}
@@ -420,8 +394,11 @@ export function App() {
             currentView={currentView}
             onNavigate={setCurrentView}
             user={user}
-            onSignOut={handleSignOut}
-            onOpenAuth={handleOpenAuth}
+            onOpenNewProject={() => handleStartBuilding()}
+            onOpenProject={(projId) => {
+              const found = projects.find((p) => p.id === projId);
+              if (found) handleOpenProject(found);
+            }}
           />
 
           {/* MAIN PAGE VIEW ROUTER */}
@@ -435,12 +412,8 @@ export function App() {
                 <FeaturesSection />
                 <TemplatesSection onUseTemplate={handleUseTemplate} />
                 <PricingSection
-                  onSelectPlan={(plan) => {
-                    if (user) {
-                      setCurrentView('billing');
-                    } else {
-                      handleOpenAuth('signup');
-                    }
+                  onSelectPlan={() => {
+                    setCurrentView('billing');
                   }}
                 />
                 <FAQSection />
@@ -452,61 +425,12 @@ export function App() {
                 <DashboardSidebar
                   currentView={currentView}
                   onNavigate={setCurrentView}
-                  user={
-                    user || {
-                      id: 'guest',
-                      name: 'Guest User',
-                      email: 'guest@vervox.ai',
-                      plan: 'free',
-                      usage: {
-                        monthlyCredits: 0,
-                        maxMonthlyCredits: 200,
-                        purchasedCredits: 0,
-                        creditsUsed: 0,
-                        lastCreditResetDate: new Date().toISOString(),
-                        subscriptionStatus: 'none',
-                        subscriptionRenewalDate: new Date().toISOString(),
-                        generationsUsed: 0,
-                        maxGenerations: 10,
-                        projectsCount: 0,
-                        maxProjects: 10,
-                        storageMb: 0,
-                        maxStorageMb: 50,
-                      },
-                      createdAt: new Date().toISOString(),
-                      updatedAt: new Date().toISOString(),
-                    }
-                  }
-                  onSignOut={handleSignOut}
+                  user={user}
                   onOpenNewProject={() => handleStartBuilding()}
                 />
                 <div className="flex-1 p-6 sm:p-10 bg-slate-950">
                   <ProjectsGrid
-                    user={
-                      user || {
-                        id: 'guest',
-                        name: 'Guest User',
-                        email: 'guest@vervox.ai',
-                        plan: 'free',
-                        usage: {
-                          monthlyCredits: 0,
-                          maxMonthlyCredits: 200,
-                          purchasedCredits: 0,
-                          creditsUsed: 0,
-                          lastCreditResetDate: new Date().toISOString(),
-                          subscriptionStatus: 'none',
-                          subscriptionRenewalDate: new Date().toISOString(),
-                          generationsUsed: 0,
-                          maxGenerations: 10,
-                          projectsCount: projects.length,
-                          maxProjects: 10,
-                          storageMb: 0,
-                          maxStorageMb: 50,
-                        },
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                      }
-                    }
+                    user={user}
                     projects={projects}
                     onOpenProject={handleOpenProject}
                     onRenameProject={handleRenameProject}
@@ -529,18 +453,14 @@ export function App() {
             {currentView === 'pricing' && (
               <PricingSection
                 onSelectPlan={() => {
-                  if (user) {
-                    setCurrentView('billing');
-                  } else {
-                    handleOpenAuth('signup');
-                  }
+                  setCurrentView('billing');
                 }}
               />
             )}
 
             {currentView === 'faq' && <FAQSection />}
 
-            {currentView === 'settings' && user && (
+            {currentView === 'settings' && (
               <SettingsView
                 user={user}
                 onUpdateUser={(updated) => {
@@ -553,7 +473,7 @@ export function App() {
 
             {currentView === 'models' && <AIModelsView />}
 
-            {currentView === 'billing' && user && (
+            {currentView === 'billing' && (
               <BillingView
                 user={user}
                 onUserUpdated={(updatedUser) => {

@@ -103,8 +103,8 @@ export const AuthModal: React.FC<Props> = ({
       setGeneratedOtp(res.otpCode);
       setOtpStep('verify');
       setTimer(300);
-      setShowSimulatedEmail(false);
-      onToast('success', `Verification email sent! Check your inbox at ${email.trim()}`);
+      setShowSimulatedEmail(true);
+      onToast('success', `Verification code generated! Check email notification below or click Auto-fill.`);
     } catch (err: any) {
       onToast('error', err.message || 'Failed to send verification email.');
     } finally {
@@ -112,11 +112,25 @@ export const AuthModal: React.FC<Props> = ({
     }
   };
 
-  const handleAutoFillOtp = () => {
-    if (generatedOtp && generatedOtp.length === 6) {
-      const digits = generatedOtp.split('');
+  const handleAutoFillOtp = (targetCode?: string) => {
+    const codeToUse = targetCode || generatedOtp || '123456';
+    if (codeToUse && codeToUse.length === 6) {
+      const digits = codeToUse.split('');
       setOtpCode(digits);
-      onToast('info', 'Verification code auto-filled from email!');
+      onToast('info', 'Verification code auto-filled!');
+      setLoading(true);
+      apiService.verifyOTP(email.trim(), codeToUse, name.trim())
+        .then((res) => {
+          onToast('success', `Authentication successful! Welcome, ${res.user.name}.`);
+          onSuccess(res.user);
+          onClose();
+        })
+        .catch((err) => {
+          onToast('error', err?.message || 'Verification failed.');
+        })
+        .finally(() => {
+          setLoading(false);
+        });
     }
   };
 
@@ -284,35 +298,67 @@ export const AuthModal: React.FC<Props> = ({
 
           {/* MAIN SIGN IN / SIGN UP TABS */}
           {mode !== 'forgot' && otpStep === 'request' && (
-            <div className="flex w-full bg-slate-950 border border-slate-800 p-1 rounded-xl mt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('login');
-                  setAuthMethod('password');
-                }}
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                  mode === 'login'
-                    ? 'bg-indigo-600 text-white shadow-md'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Sign In
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('signup');
-                  setAuthMethod('password');
-                }}
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                  mode === 'signup'
-                    ? 'bg-indigo-600 text-white shadow-md'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Sign Up
-              </button>
+            <div className="w-full space-y-3 mt-4">
+              <div className="flex w-full bg-slate-950 border border-slate-800 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('login');
+                    setAuthMethod('password');
+                  }}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    mode === 'login'
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('signup');
+                    setAuthMethod('password');
+                  }}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    mode === 'signup'
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Sign Up
+                </button>
+              </div>
+
+              {/* 2 DISTINCT SIGN-IN METHODS TOGGLE (DIRECT EMAIL VS EMAIL OTP) */}
+              {mode === 'login' && (
+                <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-950/80 border border-slate-800/80 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setAuthMethod('password')}
+                    className={`py-2 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      authMethod === 'password'
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Mail className="w-3.5 h-3.5 text-blue-300" />
+                    Direct Email Sign-In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMethod('otp')}
+                    className={`py-2 text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      authMethod === 'otp'
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <KeyRound className="w-3.5 h-3.5 text-indigo-300" />
+                    Email Code (OTP)
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -615,10 +661,10 @@ export const AuthModal: React.FC<Props> = ({
                   <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
                   <input
                     type={showPassword ? 'text' : 'password'}
-                    required
+                    required={mode === 'signup'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
+                    placeholder={mode === 'signup' ? '••••••••' : '•••••••• (optional)'}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-9 pr-10 text-sm text-white focus:outline-none focus:border-indigo-500"
                   />
                   <button
@@ -689,7 +735,7 @@ export const AuthModal: React.FC<Props> = ({
                   Authenticating...
                 </span>
               ) : mode === 'login' ? (
-                'Sign In'
+                'Sign In Instantly'
               ) : mode === 'signup' ? (
                 'Create Account & Get 200 Credits'
               ) : (

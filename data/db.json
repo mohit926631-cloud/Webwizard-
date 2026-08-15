@@ -1,0 +1,71 @@
+{
+  "users": {
+    "default_user_1": {
+      "id": "default_user_1",
+      "name": "Creator",
+      "email": "creator@vervox.ai",
+      "plan": "pro",
+      "monthlyCredits": 5000,
+      "purchasedCredits": 11500,
+      "creditsUsed": 0,
+      "lastCreditResetDate": "2026-08-15T17:54:56.630Z",
+      "subscriptionStatus": "active",
+      "subscriptionRenewalDate": "2026-09-14T17:54:56.630Z",
+      "createdAt": "2026-08-15T17:54:56.630Z",
+      "updatedAt": "2026-08-15T17:55:50.084Z",
+      "billingHistory": [
+        {
+          "id": "tx_1786816550084_vo69",
+          "date": "2026-08-15T17:55:50.084Z",
+          "amount": 12,
+          "currency": "USD",
+          "description": "Purchased Credit Pack (1500 Extra Credits)",
+          "creditsAdded": 1500,
+          "status": "completed",
+          "provider": "Razorpay",
+          "paymentId": "pay_1786816549240_v8qa"
+        },
+        {
+          "id": "tx_1786816547135_ht9m",
+          "date": "2026-08-15T17:55:47.135Z",
+          "amount": 35,
+          "currency": "USD",
+          "description": "Purchased Credit Pack (5000 Extra Credits)",
+          "creditsAdded": 5000,
+          "status": "completed",
+          "provider": "Razorpay",
+          "paymentId": "pay_1786816546297_9tzy"
+        },
+        {
+          "id": "tx_1786816545156_2hnv",
+          "date": "2026-08-15T17:55:45.156Z",
+          "amount": 35,
+          "currency": "USD",
+          "description": "Purchased Credit Pack (5000 Extra Credits)",
+          "creditsAdded": 5000,
+          "status": "completed",
+          "provider": "Razorpay",
+          "paymentId": "pay_1786816544321_jzhm"
+        },
+        {
+          "id": "tx_init_1786816496630",
+          "date": "2026-08-15T17:54:56.630Z",
+          "amount": 0,
+          "currency": "USD",
+          "description": "VERVOX AI Full Creator Access Granted",
+          "creditsAdded": 5000,
+          "planPurchased": "pro",
+          "status": "completed",
+          "provider": "System"
+        }
+      ]
+    }
+  },
+  "projects": {},
+  "tokens": {
+    "default_token": "default_user_1"
+  },
+  "notifications": {},
+  "projectVersions": {},
+  "generationLogs": {}
+}

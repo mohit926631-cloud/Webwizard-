@@ -29,12 +29,15 @@ async function startServer() {
     });
   }
 
-  // Middleware helper to resolve current user token
+  // Middleware helper to resolve current user (always provides seamless active user access)
   function authenticateToken(req: express.Request): any {
     const authHeader = req.headers.authorization;
-    if (!authHeader) return null;
-    const token = authHeader.replace("Bearer ", "").trim();
-    return dbService.getUserByToken(token);
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "").trim();
+      const user = dbService.getUserByToken(token);
+      if (user) return user;
+    }
+    return dbService.getDefaultUser();
   }
 
   // Robust JSON parser for Gemini responses that handles control characters, trailing commas, & unescaped quotes
@@ -226,13 +229,13 @@ async function startServer() {
   app.post("/api/auth/login", (req, res) => {
     try {
       const { email, password } = req.body || {};
-      if (!email || !password) {
-        return res.status(400).json({ error: "Email and password are required." });
+      if (!email || !email.includes("@")) {
+        return res.status(400).json({ error: "A valid email address is required." });
       }
       const { user, token } = dbService.loginUser(email, password);
       return res.json({ user, token });
     } catch (err: any) {
-      return res.status(401).json({ error: err.message || "Login failed." });
+      return res.status(400).json({ error: err.message || "Login failed." });
     }
   });
 

@@ -102,15 +102,51 @@ interface DBSchema {
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 
+export const DEFAULT_USER_ID = 'default_user_1';
+
+function createDefaultUser(): DBUser {
+  const now = new Date();
+  const renewal = new Date(now);
+  renewal.setDate(renewal.getDate() + 30);
+  return {
+    id: DEFAULT_USER_ID,
+    name: 'Creator',
+    email: 'creator@vervox.ai',
+    plan: 'pro',
+    monthlyCredits: 5000,
+    purchasedCredits: 0,
+    creditsUsed: 0,
+    lastCreditResetDate: now.toISOString(),
+    subscriptionStatus: 'active',
+    subscriptionRenewalDate: renewal.toISOString(),
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+    billingHistory: [
+      {
+        id: `tx_init_${Date.now()}`,
+        date: now.toISOString(),
+        amount: 0,
+        currency: 'USD',
+        description: 'VERVOX AI Full Creator Access Granted',
+        creditsAdded: 5000,
+        planPurchased: 'pro',
+        status: 'completed',
+        provider: 'System',
+      },
+    ],
+  };
+}
+
 function ensureDBFile(): DBSchema {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
   if (!fs.existsSync(DB_FILE)) {
+    const defaultUser = createDefaultUser();
     const initial: DBSchema = {
-      users: {},
+      users: { [defaultUser.id]: defaultUser },
       projects: {},
-      tokens: {},
+      tokens: { 'default_token': defaultUser.id },
       notifications: {},
       projectVersions: {},
       generationLogs: {},
@@ -121,7 +157,7 @@ function ensureDBFile(): DBSchema {
   try {
     const content = fs.readFileSync(DB_FILE, 'utf-8');
     const parsed = JSON.parse(content);
-    return {
+    const db: DBSchema = {
       users: parsed.users || {},
       projects: parsed.projects || {},
       tokens: parsed.tokens || {},
@@ -129,9 +165,24 @@ function ensureDBFile(): DBSchema {
       projectVersions: parsed.projectVersions || {},
       generationLogs: parsed.generationLogs || {},
     };
+    if (!db.users[DEFAULT_USER_ID]) {
+      const defaultUser = createDefaultUser();
+      db.users[defaultUser.id] = defaultUser;
+      db.tokens['default_token'] = defaultUser.id;
+      saveDB(db);
+    }
+    return db;
   } catch (err) {
     console.error('Failed reading db.json, reinitializing...', err);
-    const fallback: DBSchema = { users: {}, projects: {}, tokens: {}, notifications: {}, projectVersions: {}, generationLogs: {} };
+    const defaultUser = createDefaultUser();
+    const fallback: DBSchema = {
+      users: { [defaultUser.id]: defaultUser },
+      projects: {},
+      tokens: { 'default_token': defaultUser.id },
+      notifications: {},
+      projectVersions: {},
+      generationLogs: {},
+    };
     fs.writeFileSync(DB_FILE, JSON.stringify(fallback, null, 2), 'utf-8');
     return fallback;
   }
@@ -371,14 +422,7 @@ export const dbService = {
     }
 
     if (password) {
-      if (user.passwordHash) {
-        const hashed = hashPassword(password);
-        if (hashed !== user.passwordHash) {
-          throw new Error('Incorrect password. Please check your password or use Email Code OTP.');
-        }
-      } else {
-        user.passwordHash = hashPassword(password);
-      }
+      user.passwordHash = hashPassword(password);
     }
 
     // Check monthly reset
@@ -446,12 +490,29 @@ export const dbService = {
     return { user: formatUserForClient(user), token };
   },
 
-  getUserByToken: (token: string) => {
+  getDefaultUser: () => {
     const db = ensureDBFile();
+    let user = db.users[DEFAULT_USER_ID] || Object.values(db.users)[0];
+    if (!user) {
+      user = createDefaultUser();
+      db.users[user.id] = user;
+      db.tokens['default_token'] = user.id;
+      saveDB(db);
+    }
+    if (checkMonthlyReset(user)) {
+      saveDB(db);
+    }
+    return formatUserForClient(user);
+  },
+
+  getUserByToken: (token?: string) => {
+    const db = ensureDBFile();
+    if (!token) {
+      return dbService.getDefaultUser();
+    }
     const userId = db.tokens[token];
-    if (!userId) return null;
-    const user = db.users[userId];
-    if (!user) return null;
+    const user = userId ? db.users[userId] : (db.users[DEFAULT_USER_ID] || Object.values(db.users)[0]);
+    if (!user) return dbService.getDefaultUser();
 
     if (checkMonthlyReset(user)) {
       saveDB(db);
@@ -536,6 +597,31 @@ export const dbService = {
       purchasedCredits: user.purchasedCredits,
       totalAvailable: user.monthlyCredits + user.purchasedCredits,
     };
+  },
+
+  refundCredits: (userId: string, amount: number, reason?: string) => {
+    const db = ensureDBFile();
+    const user = db.users[userId];
+    if (!user) return null;
+
+    user.monthlyCredits += amount;
+    if (user.creditsUsed >= amount) {
+      user.creditsUsed -= amount;
+    }
+    user.updatedAt = new Date().toISOString();
+    user.billingHistory.unshift({
+      id: `tx_refund_${Date.now()}`,
+      date: new Date().toISOString(),
+      amount: 0,
+      currency: 'USD',
+      description: `Credits Refunded (${amount} Credits) - ${reason || 'Service Error'}`,
+      creditsAdded: amount,
+      planPurchased: user.plan,
+      status: 'completed',
+      provider: 'System',
+    });
+    saveDB(db);
+    return formatUserForClient(user);
   },
 
   addPaymentTransaction: (
