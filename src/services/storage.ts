@@ -3,6 +3,7 @@ import { getStoredToken, setStoredToken } from './api';
 
 const USER_KEY = 'vervox_current_user_v2';
 const BYOK_KEY = 'vervox_byok_key_v1';
+const PROJECTS_KEY = 'vervox_saved_projects_v2';
 
 export const DEFAULT_USER: User = {
   id: 'default_user_1',
@@ -62,10 +63,52 @@ export function saveStoredByok(key: string): void {
   localStorage.setItem(BYOK_KEY, key);
 }
 
+export function getStoredProjects(): Project[] {
+  try {
+    const raw = localStorage.getItem(PROJECTS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {
+    console.error('Failed reading projects from storage', e);
+  }
+  return [];
+}
+
+export function saveStoredProjects(projects: Project[]): void {
+  try {
+    localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
+  } catch (e) {
+    console.error('Failed saving projects to storage', e);
+  }
+}
+
+export function saveSingleStoredProject(project: Project): void {
+  const all = getStoredProjects();
+  const index = all.findIndex((p) => p.id === project.id);
+  if (index >= 0) {
+    all[index] = project;
+  } else {
+    all.unshift(project);
+  }
+  saveStoredProjects(all);
+}
+
+export function deleteStoredProject(projectId: string): void {
+  const all = getStoredProjects();
+  const filtered = all.filter((p) => p.id !== projectId);
+  saveStoredProjects(filtered);
+}
+
 export const storage = {
   getUser: getStoredUser,
   saveUser: saveStoredUser,
   clearUser: () => saveStoredUser(null),
   getByok: getStoredByok,
   saveByok: saveStoredByok,
+  getProjects: getStoredProjects,
+  saveProjects: saveStoredProjects,
+  saveProject: saveSingleStoredProject,
+  deleteProject: deleteStoredProject,
 };
