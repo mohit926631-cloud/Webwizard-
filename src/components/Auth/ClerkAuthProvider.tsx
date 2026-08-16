@@ -138,13 +138,17 @@ interface ClerkAuthProviderProps {
 }
 
 export const ClerkAuthProvider: React.FC<ClerkAuthProviderProps> = ({ children }) => {
+  const DEFAULT_CLERK_KEY = 'pk_test_ZXZvbHZpbmctZ3JvdXNlLTQ1NzkuY2xlcmsuYWNjb3VudHMuZGV2JA';
   const [storedKey, setStoredKey] = useState<string>(() => {
     const fromEnv = (import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || '').trim();
     if (fromEnv && (fromEnv.startsWith('pk_test_') || fromEnv.startsWith('pk_live_'))) {
       return fromEnv;
     }
     const fromStorage = localStorage.getItem('clerk_publishable_key') || '';
-    return fromStorage.trim();
+    if (fromStorage.trim().startsWith('pk_')) {
+      return fromStorage.trim();
+    }
+    return DEFAULT_CLERK_KEY;
   });
 
   const [initError, setInitError] = useState<string | null>(null);
